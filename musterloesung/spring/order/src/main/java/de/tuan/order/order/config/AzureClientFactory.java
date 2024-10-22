@@ -1,6 +1,5 @@
 package de.tuan.order.order.config;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -19,7 +18,7 @@ public class AzureClientFactory {
 
     @Bean
     public QueueClient createQueueClient() {
-        
+
         QueueClient queueClient = new QueueClientBuilder()
 
                 .connectionString(queueEndpoint)

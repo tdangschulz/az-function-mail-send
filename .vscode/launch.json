@@ -2,6 +2,13 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "type": "java",
+      "name": "OrderApplication",
+      "request": "launch",
+      "mainClass": "de.tuan.order.order.OrderApplication",
+      "projectName": "order"
+    },
+    {
       "name": "Attach to Java Functions",
       "type": "java",
       "request": "attach",

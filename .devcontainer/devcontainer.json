@@ -1,0 +1,60 @@
+{
+  "name": "devcontainer",
+  "image": "mcr.microsoft.com/devcontainers/java:21",
+  "appPort": [3000],
+  "forwardPorts": [3000],
+  "postCreateCommand": "/bin/sh .devcontainer/postInstall.sh",
+  // "postStartCommand": "bash devcontainer_bootstrap",
+  "runArgs": ["-e", "GIT_EDITOR=code --wait", "--privileged"],
+  "containerEnv": {
+    "WORKSPACE_DIRECTORY": "${containerWorkspaceFolder}"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {},
+    "ghcr.io/devcontainers/features/azure-cli:1": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "mhutchie.git-graph",
+        "eamodio.gitlens",
+        "timonwong.shellcheck",
+        "esbenp.prettier-vscode",
+        "ms-azuretools.vscode-docker",
+        "rangav.vscode-thunder-client",
+        "github.vscode-github-actions",
+        "pflannery.vscode-versionlens",
+        "streetsidesoftware.code-spell-checker",
+        "pflannery.vscode-versionlens",
+        "ms-azuretools.vscode-azurefunctions",
+        "vscjava.vscode-java-debug",
+        "redhat.vscode-xml"
+      ],
+      "settings": {
+        "editor.tabSize": 4,
+        "terminal.integrated.profiles.linux": {
+          "zsh": {
+            "path": "/usr/bin/zsh"
+          }
+        },
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "editor.formatOnPaste": false,
+        "editor.formatOnSave": true,
+        "editor.formatOnType": true,
+        "files.trimTrailingWhitespace": true,
+        "debug.javascript.autoAttachFilter": "disabled"
+      }
+    }
+  },
+  "mounts": [
+    "type=volume,target=/var/lib/docker",
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.zsh_history,target=/home/vscode/.zsh_history,type=bind",
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.ssh,target=/home/vscode/.ssh,readonly,type=bind",
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.azure,target=/home/vscode/.azure,type=bind"
+  ],
+  "remoteUser": "vscode",
+  "containerUser": "vscode",
+  "remoteEnv": {
+    "NPM_TOKEN": "${localEnv:NPM_TOKEN}"
+  }
+}

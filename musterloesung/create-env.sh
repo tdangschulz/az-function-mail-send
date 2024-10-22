@@ -1,134 +1,61 @@
-# adapt the following setting
+#!/bin/bash
+
+# rm -f cloud.sh && touch cloud.sh && chmod +x cloud.sh  && nano cloud.sh &&  ./cloud.sh
+
+# Variablen anpassen
 resource_group=rg-lb-order-tds
 region=germanywestcentral
 username=adminuser
 password='SecretPassword123!@#'
-email=foo@bar.com
 vnet_name=vnet-lb-weu-tds
-vm_name=vm-lb-we-tds # max 14 digits
 subnet_name=subnet-lb-westeu-tds
-nat_gateway_name=nat-lb-wger-tds
-availability_set_name=as-lb-westeu-tds
-network_security_group=nsg-vm-lb-westeu-tds
-public_ip_name=pip-lb-weu-tds
 public_ip_lb_name=pip-config-weu-tds
 loadbalance_name=lb-order-weu-tds
-functionApp=func-weu-tds
-functionsVersion="4"
+vmss_name=vmss-lb-weu-tds
+# scale_set_name=vmss-lb-weu-tds
 storage="orderstoragetds"
 
+# Erstellen der Ressourcengruppe
 az group create -g $resource_group -l $region
 
-az network public-ip create --name $public_ip_name --resource-group $resource_group
-
-az network public-ip create --name $public_ip_lb_name --resource-group $resource_group
-
-az network nat gateway create --name $nat_gateway_name \
-                              --resource-group $resource_group \
-                              --location $region \
-                              --public-ip-addresses $public_ip_name
-
-az network vnet create \
-  -n $vnet_name \
-  -g $resource_group \
-  -l $region \
-  --address-prefixes '10.0.0.0/16' \
-  --subnet-name $subnet_name \
-  --subnet-prefixes '10.0.0.0/24'
-
-  
-az vm availability-set create \
-  -n $availability_set_name \
-  -l $region \
-  -g $resource_group
-
-for NUM in 1 2 3
-do
-  az vm create \
-    -n $vm_name-0$NUM \
-    -g $resource_group \
-    -l $region \
-    --size Standard_B2s \
-    --image Ubuntu2204 \
-    --admin-username $username \
-    --admin-password $password \
-    --vnet-name $vnet_name \
-    --subnet $subnet_name \
-    --public-ip-address "" \
-    --availability-set $availability_set_name \
-	  --nsg $network_security_group
-done
-
-
-for NUM in 1 2 3
-do
-  az vm open-port -g $resource_group --name $vm_name-0$NUM --port 8080 --priority 100
-  az vm open-port -g $resource_group --name $vm_name-0$NUM --port 22 --priority 101
-done
-
-az network nsg rule create \
-  --resource-group $resource_group \
-  --nsg-name $network_security_group \
-  --name AzureLoadBalancer \
-  --priority 102 \
-  --source-address-prefixes AzureLoadBalancer \
-  --source-port-ranges "*" \
-  --destination-address-prefixes "*" \
-  --destination-port-ranges 8080 \
-  --direction Inbound \
-  --access Allow \
-  --protocol Tcp \
-  --description "Erlaubt eingehenden Datenverkehr vom Azure Load Balancer auf Port 8080"
-
-
-for NUM in 1 2 3
-do
-    az vm auto-shutdown \
-    --resource-group $resource_group \
-    --name $vm_name-0$NUM \
-    --time 1830 \
-    --email $email
-done
-
+# Erstellen des Load Balancers
 az network lb create --name $loadbalance_name \
                      --resource-group $resource_group \
                      --public-ip-address $public_ip_lb_name \
-                     --frontend-ip-name frontend-ip 
+                     --frontend-ip-name frontend-ip
 
+# Backend-Pool für den Load Balancer
 az network lb address-pool create \
   --resource-group $resource_group \
   --lb-name $loadbalance_name \
-  --name lb-backend-pool \
-  --vnet $vnet_name \
+  --name lb-backend-pool
 
-
-az network nic ip-config update \
+# Erstellen eines Virtual Machine Scale Sets (VMSS) mit Boot-Diagnostics
+az vmss create \
+  --name $vmss_name \
   --resource-group $resource_group \
-  --nic-name vm-lb-we-tds-01VMNic \
-  --name ipconfigvm-lb-we-tds-01 \
-  --lb-name $loadbalance_name \
-  --vnet-name vnet_name
+  --image Debian11 \
+  --upgrade-policy-mode automatic \
+  --admin-username $username \
+  --admin-password $password \
+  --vnet-name $vnet_name \
+  --subnet $subnet_name \
+  --backend-pool-name lb-backend-pool \
+  --lb $loadbalance_name \
+  --instance-count 2 \
+  --vm-sku Standard_B2s \
+  --load-balancer $loadbalance_name \
+  --authentication-type password \
+  --generate-ssh-keys
 
-az network nic ip-config update \
-  --resource-group $resource_group \
-  --nic-name vm-lb-we-tds-02VMNic \
-  --name ipconfigvm-lb-we-tds-02 \
-  --lb-name $loadbalance_name \
-  --vnet-name vnet_name
-
-az network nic ip-config update \
-  --resource-group $resource_group \
-  --nic-name vm-lb-we-tds-03VMNic \
-  --name ipconfigvm-lb-we-tds-03 \
-  --lb-name $loadbalance_name \
-  --vnet-name vnet_name    
-
+# Load Balancer-Probe für SSH
 az network lb probe create --lb-name $loadbalance_name  \
                            --name ssh-probe \
                            --port 22 \
                            --protocol Tcp \
                            --resource-group $resource_group
-                    
+
+# Load Balancer-Regel für HTTP-Verkehr
 az network lb rule create \
   --resource-group $resource_group \
   --lb-name $loadbalance_name \
@@ -138,76 +65,70 @@ az network lb rule create \
   --backend-port 8080 \
   --frontend-ip-name frontend-ip \
   --backend-pool-name lb-backend-pool \
-  --probe-name ssh-probe  \
+  --probe-name ssh-probe \
   --disable-outbound-snat true \
   --idle-timeout 15 \
   --enable-tcp-reset true
 
-az network lb inbound-nat-rule create \
+# Erstellen einer Load Balancer Outbound Rule für Internetzugang
+az network lb outbound-rule create \
   --resource-group $resource_group \
   --lb-name $loadbalance_name \
-  --name inbound-nat-rule \
+  --name outbound-rule \
+  --frontend-ip-configs frontend-ip \
+  --protocol All \
+  --idle-timeout 15 \
+  --enable-tcp-reset true \
+  --allocated-outbound-ports 1024 \
+  --address-pool lb-backend-pool
+
+# NSG-Regel erstellen, um ausgehenden Internetzugang zu erlauben
+nsg_name=nsg-$vnet_name
+az network nsg create --resource-group $resource_group --name $nsg_name --location $region
+
+az network nsg rule create \
+  --resource-group $resource_group \
+  --nsg-name $nsg_name \
+  --name AllowInternetOutBound \
+  --direction Outbound \
+  --priority 100 \
+  --access Allow \
   --protocol Tcp \
-  --backend-port 22 \
-  --frontend-ip-name frontend-ip \
-  --backend-pool-name lb-backend-pool \
-  --frontend-port-range-start 22 \
-  --frontend-port-range-end 24
+  --destination-port-ranges 80 443 \
+  --destination-address-prefixes Internet \
+  --source-address-prefixes '*' \
+  --source-port-ranges '*'
 
-az network lb outbound-rule create --lb-name $loadbalance_name \
-                                   --name outbound-lb-rule \
-                                   --protocol Tcp \
-                                   --resource-group $resource_group \
-                                   --frontend-ip-configs frontend-ip \
-                                   --backend-address-pool lb-backend-pool
-
-
-for NUM in 1 2 3
-do
-az vm extension set \
+# NSG dem Subnetz zuweisen
+az network vnet subnet update \
   --resource-group $resource_group \
-  --vm-name $vm_name-0$NUM \
-  --name customScript \
-  --publisher Microsoft.Azure.Extensions \
-  --version 2.0 \
-  --protected-settings '{"commandToExecute": "sudo apt-get update && sudo apt-get update && sudo apt-get -y upgrade && sudo apt install -y openjdk-17-jdk openjdk-17-jre"}'
-done
+  --vnet-name $vnet_name \
+  --name $subnet_name \
+  --network-security-group $nsg_name
 
+# Erstellen der Autoscaling-Regel basierend auf CPU-Auslastung
+az monitor autoscale create \
+  --resource-group $resource_group \
+  --name vmss-autoscale-monitor \
+  --min-count 1 \
+  --max-count 2 \
+  --count 1 \
+  --resource $(az vmss show --name $vmss_name --resource-group $resource_group --query id --output tsv)
+
+az monitor autoscale rule create \
+  --resource-group $resource_group \
+  --autoscale-name vmss-autoscale-monitor \
+  --scale out 1 \
+  --condition "Percentage CPU > 50 avg 1m" \
+  --cooldown 2
+
+az monitor autoscale rule create \
+  --resource-group $resource_group \
+  --autoscale-name vmss-autoscale-monitor \
+  --scale in 1 \
+  --condition "Percentage CPU < 20 avg 1m" \
+  --cooldown 2
+
+# Storage-Account erstellen
 az storage account create --name $storage --location $region --resource-group $resource_group --sku Standard_LRS
-
-az functionapp create --name $functionApp \
-                      --resource-group $resource_group \
-                      --storage-account $storage \
-                      --consumption-plan-location $region --functions-version $functionsVersion \
-                      --os-type linux \
-                      --runtime node \
-                      --runtime-version 18
-
-az servicebus namespace create --resource-group $resource_group \
-                               --name bus-order-weu-tds \
-                               --location $region \
-                               --sku Standard
-
-az servicebus topic create --resource-group $resource_group \
-                           --namespace-name bus-order-weu-tds  \
-                           --name cancelOrder
-
-az servicebus topic subscription create \
-  --resource-group $resource_group \
-  --namespace-name bus-order-weu-tds \
-  --topic-name cancelOrder \
-  --name send_confirm_cancel
-
-az servicebus topic subscription create \
-  --resource-group $resource_group \
-  --namespace-name bus-order-weu-tds \
-  --topic-name cancelOrder \
-  --name prcesses_order_state
-
-az servicebus topic subscription create \
-  --resource-group $resource_group \
-  --namespace-name bus-order-weu-tds \
-  --topic-name cancelOrder \
-  --name report_cancels
-
 

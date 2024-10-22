@@ -8,5 +8,6 @@
   "java.configuration.updateBuildConfiguration": "automatic",
   "azureFunctions.templateFilter": "All",
   "azureFunctions.postDeployTask": "npm install (functions)",
-  "azureFunctions.projectLanguageModel": 4
+  "azureFunctions.projectLanguageModel": 4,
+  "java.compile.nullAnalysis.mode": "automatic"
 }
