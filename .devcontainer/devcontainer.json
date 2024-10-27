@@ -1,8 +1,8 @@
 {
   "name": "devcontainer",
-  "image": "mcr.microsoft.com/devcontainers/java:21",
-  "appPort": [3000],
-  "forwardPorts": [3000],
+  "image": "mcr.microsoft.com/devcontainers/java:1-21",
+  "appPort": [8080],
+  "forwardPorts": [8080],
   "postCreateCommand": "/bin/sh .devcontainer/postInstall.sh",
   // "postStartCommand": "bash devcontainer_bootstrap",
   "runArgs": ["-e", "GIT_EDITOR=code --wait", "--privileged"],

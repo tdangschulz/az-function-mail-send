@@ -19,4 +19,6 @@ sed -i "\$ a\M2_HOME=\"/opt/apache-maven-${MAVEN_VERSION}\"" ~/.zshrc
 sed -i '$ a\PATH="\$M2_HOME/bin:\$PATH"' ~/.zshrc
 rm apache-maven-${MAVEN_VERSION}-bin.tar.gz*
 
-./create-env.sh
+wget https://releases.hashicorp.com/terraform/1.9.8/terraform_1.9.8_linux_386.zip
+unzip terraform_1.9.8_linux_386.zip
+sudo mv terraform /usr/local/bin
